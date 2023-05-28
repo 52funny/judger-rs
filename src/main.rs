@@ -20,7 +20,8 @@ fn main() {
     match pid {
         // child process
         0 => {
-            judger_rs::general_seccomp_rules().unwrap();
+            #[cfg(target_os = "linux")]
+            judger_rs::general_seccomp_rules();
             // set limit rules
             let limits_rules = &[
                 (libc::RLIMIT_CPU, "RLIMIT_CPU", (timeout + 1000 - 1) / 1000),
@@ -47,8 +48,23 @@ fn main() {
                 }
             }
             // using exec to execute
-            let stdin = std::fs::File::open(input_path).expect("open file failed");
-            let stdout = std::fs::File::create(output_path).expect("create file failed");
+            let stdin = match std::fs::File::open(input_path) {
+                Ok(f) => f,
+                Err(_) => unsafe {
+                    error!("open input file error!");
+                    // send SIGUSR1 signal
+                    libc::raise(libc::SIGUSR1);
+                    libc::exit(-1);
+                },
+            };
+            let stdout = match std::fs::File::create(output_path) {
+                Ok(f) => f,
+                Err(_) => unsafe {
+                    error!("create ouput file error!");
+                    libc::raise(libc::SIGUSR1);
+                    libc::exit(-1);
+                },
+            };
 
             Command::new("./main")
                 .stdin(stdin)
@@ -63,7 +79,6 @@ fn main() {
                 unsafe {
                     libc::kill(pid, libc::SIGKILL);
                 }
-                println!("done with thread");
             });
             let mut status = -1;
             let mut rusage = MaybeUninit::<libc::rusage>::zeroed();

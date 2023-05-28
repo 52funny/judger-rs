@@ -1,7 +1,9 @@
+#[cfg(target_os = "linux")]
 use seccomp::{Action, Compare, Rule};
-use std::error::Error;
 
-pub fn general_seccomp_rules() -> Result<(), Box<dyn Error>> {
+#[cfg(target_os = "linux")]
+pub fn general_seccomp_rules() -> Result<(), Box<dyn std::error::Error>> {
+    // bpf
     // references: https://filippo.io/linux-syscall-table/
     let basic_ban_rules = [
         // clone
